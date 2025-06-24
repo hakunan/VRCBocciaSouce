@@ -9,7 +9,7 @@
 このプロジェクトは、VRChat内でボッチャをプレイできるよう設計されたワールドのソースコードを提供します。UdonおよびUdonSharpを活用し、複数人での対戦プレイが可能です。
 
 ワールドの公開ページはこちら：  
-🔗 [VRChat World: VRCBOCCIA](https://vrchat.com/home/content/worlds/wrld_9addd40d-58a2-40cf-83d3-5c056f0eeadd/edit)
+🔗 [VRChat World: VRCBOCCIA](https://vrchat.com/home/launch?worldId=wrld_9addd40d-58a2-40cf-83d3-5c056f0eeadd)
 
 ---
 
