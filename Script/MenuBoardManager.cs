@@ -10,6 +10,26 @@ public class MenuBoardManager : UdonSharpBehaviour
 {
     [SerializeField] TextMeshProUGUI redTeamNameText;
     [SerializeField] TextMeshProUGUI blueTeamNameText;
+    [SerializeField] GameObject[] hiddenUIObjectsDuringGame;
+    [UdonSynced, FieldChangeCallback(nameof(IsHide))] private bool _isHide;
+    public bool IsHide
+    {
+        private set { _isHide = value; SetVisibilityByState(value); }
+        get { return _isHide; }
+    }
+    private void SetVisibilityByState(bool active)
+    {
+        foreach(var obj in hiddenUIObjectsDuringGame)
+        {
+            obj.SetActive(!active);
+        }
+    }
+    public void SetIsHideValue(bool value)
+    {
+        if (!Networking.IsOwner(gameObject)) Networking.SetOwner(Networking.LocalPlayer,gameObject);
+        IsHide= value;
+        RequestSerialization();
+    }
     public void SetTeamName(DataList teams)
     {
         string red = "";

@@ -13,6 +13,7 @@ public class InGameManager : UdonSharpBehaviour
 {
     [SerializeField] TeamManager teamManager;
     [SerializeField] SettingManager setings;
+    [SerializeField] MenuBoardManager menuBoardManager;
     [SerializeField] GameInfo gameInfo;
     [SerializeField] Podium podium;
     [SerializeField] ParticleSystem ballParticle;
@@ -40,7 +41,11 @@ public class InGameManager : UdonSharpBehaviour
     [UdonSynced] int blueCurrentBall;
     const int defoultBallCount = 6;
 
-    [UdonSynced] bool firstBall;//Trueなら赤 falseなら青
+    [UdonSynced] bool isFirstBallRed;//Trueなら赤 falseなら青
+    public bool IsFirstBallRed
+    {
+        get { return isFirstBallRed; }
+    }
     public void GameStart()
     {
         if (!Networking.IsOwner(Networking.LocalPlayer, gameObject)) { Networking.SetOwner(Networking.LocalPlayer, gameObject); }
@@ -48,7 +53,7 @@ public class InGameManager : UdonSharpBehaviour
         SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.All, nameof(TeleportLocal));
         SendConvertedPlaySe(SeKey.Start);
 
-        teamManager.SetHideObjectBool(false);
+        menuBoardManager.SetIsHideValue(true);
         AllBallReturn();
 
         currentEnd++; //ラウンドを進める
@@ -57,7 +62,7 @@ public class InGameManager : UdonSharpBehaviour
 
         if (currentEnd == 1)//　最初ならランダムでスタートを決めて初期化
         {
-            firstBall = UnityEngine.Random.value < 0.5f;
+            isFirstBallRed = UnityEngine.Random.value < 0.5f;
             redScore = 0;
             blueScore = 0;
             maxEnd = setings.GetMaxEnd();
@@ -65,7 +70,7 @@ public class InGameManager : UdonSharpBehaviour
         }
         else
         {
-            firstBall = !firstBall;
+            isFirstBallRed = !isFirstBallRed;
         }
         RequestSerialization();
 
@@ -73,7 +78,7 @@ public class InGameManager : UdonSharpBehaviour
         if(jackBall == null) { Debug.Log("ジャックボールが存在しないぜ"); return; };
         if(!Networking.IsOwner(Networking.LocalPlayer, jackBall)) Networking.SetOwner(Networking.LocalPlayer,jackBall);
 
-        if (firstBall)
+        if (isFirstBallRed)
         {
             jackBall.transform.position = redTransform.position;
             jackBall.GetComponent<BallLogic>().ResetBall();
@@ -88,7 +93,7 @@ public class InGameManager : UdonSharpBehaviour
     }
     public void FirstBallLand()
     {
-        if (firstBall)
+        if (isFirstBallRed)
         {
             SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.Owner, nameof(RedBallSpawn));
         }
@@ -101,7 +106,7 @@ public class InGameManager : UdonSharpBehaviour
     {
         if (Networking.IsOwner(Networking.LocalPlayer, jackBallObjectPool.Pool[0])) Networking.SetOwner(Networking.LocalPlayer, jackBallObjectPool.Pool[0]);
 
-        if (firstBall)
+        if (isFirstBallRed)
         {
             jackBallObjectPool.Pool[0].transform.position = redTransform.position;
         }
@@ -190,7 +195,7 @@ public class InGameManager : UdonSharpBehaviour
     }
     public void CompleteGame()
     {
-        teamManager.SetHideObjectBool(true);
+        menuBoardManager.SetIsHideValue(false);
         currentEnd = 0;
         RequestSerialization();
 
@@ -243,24 +248,22 @@ public class InGameManager : UdonSharpBehaviour
     }
     public void TeleportLocal()
     {
-        var teams = teamManager.GetTeams();
-        if(Networking.LocalPlayer.playerId < teams.Count)
+        VRCPlayerApi player = Networking.LocalPlayer;
+
+        string teamTag = player.GetPlayerTag("Team");
+
+        if (teamTag == "Red")
         {
-            int team = (int)teams[Networking.LocalPlayer.playerId].Double;
-            switch (team)
-            {
-                case 0:
-                    break;
-                case 1:
-                    Networking.LocalPlayer.TeleportTo(redTransform.position, redTransform.rotation);
-                    break;
-                case 2:
-                     Networking.LocalPlayer.TeleportTo(blueTransform.position, blueTransform.rotation);
-                     break;
-            }
-
+            player.TeleportTo(redTransform.position, redTransform.rotation);
         }
-
+        else if (teamTag == "Blue")
+        {
+            player.TeleportTo(blueTransform.position, blueTransform.rotation);
+        }
+        else
+        {
+            Debug.Log("Team Tag が設定されていません");
+        }
     }
     public void BallParticleToClosestBall()
     {
@@ -456,15 +459,27 @@ public class InGameManager : UdonSharpBehaviour
     }
     public void DropAllBall()
     {
-        if (jackBallObjectPool.Pool[0].activeSelf && jackBallObjectPool.Pool[0].GetComponent<VRCPickup>().IsHeld) jackBallObjectPool.Pool[0].GetComponent<VRCPickup>().Drop();
+        DropIfHeld(jackBallObjectPool.Pool[0]);
 
         foreach (GameObject redBall in redBallObjectPool.Pool)
         {
-            if (redBall.activeSelf && redBall.GetComponent<VRCPickup>().IsHeld) redBall.GetComponent<VRCPickup>().Drop();
+            DropIfHeld(redBall);
         }
+
         foreach (GameObject blueBall in blueBallObjectPool.Pool)
         {
-            if (blueBall.activeSelf && blueBall.GetComponent<VRCPickup>().IsHeld) blueBall.GetComponent<VRCPickup>().Drop();
+            DropIfHeld(blueBall);
+        }
+    }
+
+    private void DropIfHeld(GameObject ball)
+    {
+        if (ball == null || !ball.activeSelf) return;
+
+        var pickup = ball.GetComponent<VRCPickup>();
+        if (pickup != null && pickup.IsHeld)
+        {
+            pickup.Drop();
         }
     }
     public void ReturnObject()

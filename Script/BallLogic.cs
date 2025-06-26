@@ -1,14 +1,22 @@
 ﻿
 using UdonSharp;
 using UnityEngine;
+using VRC.SDK3.Data;
 using VRC.SDKBase;
 using VRC.Udon;
+    public enum BallType
+    {
+        JackBall,
+        Red,
+        Blue
+    }
 
 public class BallLogic : UdonSharpBehaviour
 {
     [SerializeField] InGameManager gameManager;
     [SerializeField] GameObject deadBallVisual;
-    [SerializeField, Header("０ならジャックボール１なら赤２なら青")] int ballType;
+
+    [SerializeField,Header("ボールのタイプ")] BallType ballType;
 
     [UdonSynced] bool _isGround;
     [UdonSynced, FieldChangeCallback(nameof(IsDeadBall))] private bool _isDeadBall;
@@ -49,7 +57,7 @@ public class BallLogic : UdonSharpBehaviour
     }
     public void BallLanding()
     {
-        gameManager.BallLanding(ballType, IsDeadBall);
+        gameManager.BallLanding((int)ballType, IsDeadBall);
     }
     private void OnTriggerEnter(Collider other)
     {
@@ -84,6 +92,36 @@ public class BallLogic : UdonSharpBehaviour
         IsDeadBall= false;
         RequestSerialization();
     }
+    private void UpdatePickupPermission()
+    {
+        var pickup = GetComponent<VRC_Pickup>();
+        if (_isGround)
+        {
+            pickup.pickupable = false;
+            return;
+        }
+        VRCPlayerApi player = Networking.LocalPlayer;
+
+        string teamTag = player.GetPlayerTag("Team");
+
+        if (ballType == BallType.JackBall)
+        {
+            // ジャックボールのとき、先攻チームのみ持てる
+            if ((gameManager.IsFirstBallRed && teamTag == "Red") || (!gameManager.IsFirstBallRed && teamTag == "Blue"))
+            {
+                pickup.pickupable = true;
+            }
+            else
+            {
+                pickup.pickupable = false;
+            }
+        }
+        else
+        {
+            // 通常の赤青ボール
+            pickup.pickupable = (ballType.ToString() == teamTag);
+        }
+    }
     private bool IsBallStopped()
     {
         return rb.velocity.sqrMagnitude < 0.01f;
@@ -101,5 +139,9 @@ public class BallLogic : UdonSharpBehaviour
 
         rb.isKinematic = true;
         rb.useGravity = false;
+    }
+    public override void OnDeserialization()
+    {
+        UpdatePickupPermission();
     }
 }

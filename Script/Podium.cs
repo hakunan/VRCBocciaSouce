@@ -33,17 +33,13 @@ public class Podium : UdonSharpBehaviour
     [NetworkCallable]
     public void HandleGameEndTeleport(int winnerTeam)
     {
-        var teams = teamManager.GetTeams();
 
-        // 安全チェック
-        if (Networking.LocalPlayer == null || Networking.LocalPlayer.playerId >= teams.Count)
-        {
-            return;
-        }
+        VRCPlayerApi player = Networking.LocalPlayer;
 
-        int myTeam = (int)teams[Networking.LocalPlayer.playerId].Double;
+        string teamTag = player.GetPlayerTag("Team");
+        int teamId = (teamTag == "Red") ? 1 : (teamTag == "Blue") ? 2 : 0;
 
-        if (myTeam == winnerTeam && winnerTeam != 0) // 勝利チームで引き分けでない
+        if (teamId == winnerTeam && winnerTeam != 0) // 勝利チームで引き分けでない
         {
             Networking.LocalPlayer.TeleportTo(awardSpawnPoint.position, awardSpawnPoint.rotation);
         }
@@ -55,19 +51,24 @@ public class Podium : UdonSharpBehaviour
 
     private void SetWinnerName()
     {
-        var teams = teamManager.GetTeams();
-        string text = "";
-
-        for (int i = 0; i < teams.Count; i++)
+        string winTeamTag = winTeam == 1 ? "Red" :
+                         winTeam == 2 ? "Blue" : null;
+        if (string.IsNullOrEmpty(winTeamTag))
         {
-            int t = (int)teams[i].Double;
-            if (t == winTeam)
+            winnerName.text = "";
+            return;
+        }
+
+        int count = VRCPlayerApi.GetPlayerCount();
+        VRCPlayerApi[] players = new VRCPlayerApi[count];
+        VRCPlayerApi.GetPlayers(players);
+
+        string text = "";
+        foreach (var player in players)
+        {
+            if (player.GetPlayerTag("Team") == winTeamTag)
             {
-                var player = VRCPlayerApi.GetPlayerById(i);
-                if (player != null)
-                {
-                    text += player.displayName + " ";
-                }
+                text += player.displayName + " ";
             }
         }
 
